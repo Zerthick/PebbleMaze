@@ -129,7 +129,7 @@ static void main_window_unload(Window *window) {
 }
 
 static void init() {
-  srand(2);
+  srand(time(NULL));
   // Create maze
   mazeWidth = 18;
   mazeHeight = 19;
