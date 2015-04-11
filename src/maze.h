@@ -11,6 +11,4 @@ struct Cell {
 
 Cell* genmaze(int w, int h);
 
-void printmaze(int w, int h, Cell* maze);
-
 #endif

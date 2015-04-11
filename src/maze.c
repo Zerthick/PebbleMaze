@@ -4,6 +4,29 @@
 
 //#define DEBUG() for(int x=0;x<w;x++) {printf("%2i ",maze[POS(y,x)].set);} printf("\n");
 
+
+    //doubles back over our set, indicated by curpos, and patches it with holes
+void addholes(int pos, int setsize, Cell *maze, int curpos) {
+  //how many vertical gaps
+  int numholes = 1+(setsize<=1?0:rand()%(setsize/2+1));
+
+  //create a boolean array to represent which should have holes
+  BOOL holes[setsize];
+  memset(holes, TRUE, numholes*sizeof(BOOL));
+  memset(holes+numholes, FALSE, (setsize-numholes)*sizeof(BOOL));
+  //shuffle it, we can see inductively this is an even shuffle
+  for(int i = 1; i < setsize; i++) {
+    int r = rand()%(i+1);
+    BOOL tmp = holes[i];
+    holes[i] = holes[r];
+    holes[r] = tmp;
+  }
+  //now set holes based on our shuffle
+  for(int i = 0; i < setsize; i++) {
+    maze[curpos+i].b = !holes[i]?1:0;
+  }
+}
+
 Cell* genmaze(int w, int h) {
   Cell *maze = calloc(w*h, sizeof(*maze));
 
@@ -58,8 +81,8 @@ Cell* genmaze(int w, int h) {
     for(int x = 0; x < w-1; x++) {
       int pos = POS(y,x);
 
-      bool sameset = maze[pos].set == maze[pos+1].set;
-
+      BOOL sameset = maze[pos].set == maze[pos+1].set;
+      
       int matchpos = -1;
       if(!sameset) {
         //check if we've merged before
@@ -70,7 +93,7 @@ Cell* genmaze(int w, int h) {
         }
         //if we've already merged with this set AND it wasn't the last merge...
         //then force a vertical bar since we've hit ourselves again
-        if(matchpos != -1 && matchpos != mergelen) sameset = true;
+        if(matchpos != -1 && matchpos != mergelen) sameset = TRUE;
       }
 
       //if the two sets are identical, a wall MUST be placed to avoid loops
@@ -97,27 +120,7 @@ Cell* genmaze(int w, int h) {
     //curpos- the index of the start of the most recent set
     //curset- set number; setsize- number of cells in set
     int curpos, curset, setsize;
-    //doubles back over our set, indicated by curpos, and patches it with holes
-    void addholes(int pos) {
-      //how many vertical gaps
-      int numholes = 1+(setsize<=1?0:rand()%(setsize/2+1));
-
-      //create a boolean array to represent which should have holes
-      bool holes[setsize];
-      memset(holes, true, numholes*sizeof(bool));
-      memset(holes+numholes, false, (setsize-numholes)*sizeof(bool));
-      //shuffle it, we can see inductively this is an even shuffle
-      for(int i = 1; i < setsize; i++) {
-        int r = rand()%(i+1);
-        bool tmp = holes[i];
-        holes[i] = holes[r];
-        holes[r] = tmp;
-      }
-      //now set holes based on our shuffle
-      for(int i = 0; i < setsize; i++) {
-        maze[curpos+i].b = !holes[i]?1:0;
-      }
-    }
+    
     curpos=POS(y,0), curset=maze[curpos].set, setsize=0;
     //put at least 1 hole in each set, never have 2 adjacent holes
     //have to count up sets...
@@ -126,7 +129,7 @@ Cell* genmaze(int w, int h) {
       //count up the size of our current set
       if(curset == maze[pos].set) ++setsize;
       else { //once the set we're looking at changes, we need to do work
-        addholes(pos);
+        addholes(pos, setsize, maze, curpos);
         curpos = POS(y, x);
         curset = maze[curpos].set;
         setsize = 1;
@@ -134,7 +137,7 @@ Cell* genmaze(int w, int h) {
     }
     //since we'll never transition to another set at the end of a row,
     //add holes a the end
-    addholes(POS(y, w-1));
+    addholes(POS(y, w-1), setsize, maze, curpos);
   }
 
   //now close up the last row
@@ -148,24 +151,4 @@ Cell* genmaze(int w, int h) {
   }
 
   return maze;
-}
-
-void printmaze(int w, int h, Cell* maze) {
-  printf("   ");
-  printf(DOUL);
-  for(int x = 1; x < w; x++) {
-    printf("  ");
-  }
-  printf("%s%s", NOUL, "\n");
-  for(int y = 0; y < h; y++) {
-    printf("|");
-    for(int x = 0; x < w; x++) {
-      Cell cell = maze[POS(y, x)];
-      if(cell.b) printf(DOUL);
-      printf(" ");
-      printf(cell.r?"|":" ");
-      printf(NOUL);
-    }
-    printf("\n");
-  }
 }

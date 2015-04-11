@@ -8,12 +8,12 @@
 #include "maze.h"
 
 
-#define POS(y,x,w) ((y)*w+(x))
+#define getPOS(y,x,w) ((y)*w+(x))
 
 static Window *s_main_window;
 static TextLayer *s_output_layer;
 static Layer *s_maze_layer;
-static Layer *s_player_layer;
+//static Layer *s_player_layer;
 
 static Cell *maze;
 
@@ -62,7 +62,7 @@ static Cell *maze;
 static void maze_layer_update_callback(Layer *layer, GContext *ctx){
    for(int i = 0; i < 32; i++){
      for(int j = 0; j < 32; j++){
-       int currentPos = POS(j, i, 32);
+       int currentPos = getPOS(j, i, 32);
        if(maze[currentPos].r) {
          graphics_draw_line(ctx, GPoint(16*i, 16*j), GPoint(16*i, 16*j + 16));
        }
