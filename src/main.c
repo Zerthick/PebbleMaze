@@ -9,29 +9,34 @@
 
 
 #define getPOS(y,x,w) ((y)*w+(x))
-
 static Window *s_main_window;
 static TextLayer *s_output_layer;
 static Layer *s_maze_layer;
-//static Layer *s_player_layer;
+static Layer *s_player_layer;
 
 static Cell *maze;
+static int playerX;
+static int playerY;
+static int mazeWidth;
+static int mazeHeight;
+static int corridorSize;
 
-/*static void data_handler(AccelData *data, uint32_t num_samples) {
-  // Long lived buffer
-  static char s_buffer[128];
-
-  // Compose string of all data
-  snprintf(s_buffer, sizeof(s_buffer), 
-    "N X,Y,Z\n0 %d,%d,%d\n1 %d,%d,%d\n2 %d,%d,%d", 
-    data[0].x, data[0].y, data[0].z, 
-    data[1].x, data[1].y, data[1].z, 
-    data[2].x, data[2].y, data[2].z
-  );
-
-  //Show the data
-  text_layer_set_text(s_output_layer, s_buffer);
-}*/
+static void data_handler(AccelData *data, uint32_t num_samples) {
+  if (data[0].x > 20){
+    playerX++;
+    layer_mark_dirty(s_player_layer);
+  } else if (data[0].x < -20){
+    playerX--;
+    layer_mark_dirty(s_player_layer);
+  }
+  if (data[0].y > 20){
+    playerY++;
+    layer_mark_dirty(s_player_layer);
+  } else if (data[0].y < -20){
+    playerY--;
+    layer_mark_dirty(s_player_layer);
+  }
+}
 
 /*static void tap_handler(AccelAxisType axis, int32_t direction) {
   switch (axis) {
@@ -60,17 +65,21 @@ static Cell *maze;
 }*/
 
 static void maze_layer_update_callback(Layer *layer, GContext *ctx){
-   for(int i = 0; i < 32; i++){
-     for(int j = 0; j < 32; j++){
-       int currentPos = getPOS(j, i, 32);
-       if(maze[currentPos].r) {
-         graphics_draw_line(ctx, GPoint(16*i, 16*j), GPoint(16*i, 16*j + 16));
+   for(int i = 0; i < mazeWidth; i++){
+     for(int j = 0; j < mazeHeight; j++){
+       int currentPos = getPOS(j, i, mazeWidth);
+       if(maze[currentPos].r == 1) {
+         graphics_draw_line(ctx, GPoint(corridorSize*(i + 1), corridorSize*j), GPoint(corridorSize*(i + 1), corridorSize*(j + 1)));
        }
-       if(maze[currentPos].b) {
-         
+       if(maze[currentPos].b == 1) {
+         graphics_draw_line(ctx, GPoint(corridorSize*i, corridorSize*(j + 1)), GPoint(corridorSize*(i + 1), corridorSize*(j + 1)));
        }
      }
    }
+}
+
+static void player_layer_update_callback(Layer *layer, GContext *ctx){
+    graphics_draw_circle(ctx, GPoint(playerX+3, playerY+3), 2);
 }
 
 static void main_window_load(Window *window) {
@@ -80,6 +89,10 @@ static void main_window_load(Window *window) {
   s_maze_layer = layer_create(window_bounds);
   layer_set_update_proc(s_maze_layer, maze_layer_update_callback);
   layer_add_child(window_layer, s_maze_layer);
+  
+  s_player_layer = layer_create(window_bounds);
+  layer_set_update_proc(s_player_layer, player_layer_update_callback);
+  layer_add_child(s_maze_layer, s_player_layer);
   // Create output TextLayer
   /*s_output_layer = text_layer_create(GRect(5, 0, window_bounds.size.w - 10, window_bounds.size.h));
   text_layer_set_font(s_output_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
@@ -92,11 +105,26 @@ static void main_window_unload(Window *window) {
   // Destroy output TextLayer
   text_layer_destroy(s_output_layer);
   layer_destroy(s_maze_layer);
+  layer_destroy(s_player_layer);
 }
 
 static void init() {
+  srand(2);
   // Create maze
-  maze = genmaze(32, 32);
+  mazeWidth = 18;
+  mazeHeight = 18;
+  corridorSize = 6;
+  maze = genmaze(mazeWidth, mazeHeight);
+  
+  // Init Player Position
+  playerX = 0;
+  playerY = 0;
+  
+  int num_samples = 1;
+  accel_data_service_subscribe(num_samples, data_handler);
+  
+  // Choose update rate
+  accel_service_set_sampling_rate(ACCEL_SAMPLING_100HZ);
   
   // Create main Window
   s_main_window = window_create();
