@@ -21,21 +21,26 @@ static int mazeWidth;
 static int mazeHeight;
 static int corridorSize;
 
-static void data_handler(AccelData *data, uint32_t num_samples) {
-  if (data[0].x > 20){
+static void data_handler(void* out) {
+  AccelData* data = malloc(sizeof(*data));
+  int error = accel_service_peek(data);
+  //app_log(APP_LOG_LEVEL_INFO,"main.c",27,"%hi  %hi %hi %d",data->x,data->y,data->z, error);
+  if (data[0].x > 100){
     playerX++;
     layer_mark_dirty(s_player_layer);
-  } else if (data[0].x < -20){
+  } else if (data[0].x < -100){
     playerX--;
     layer_mark_dirty(s_player_layer);
   }
-  if (data[0].y > 20){
+  if (data[0].y < -100){
     playerY++;
     layer_mark_dirty(s_player_layer);
-  } else if (data[0].y < -20){
+  } else if (data[0].y > 100){
     playerY--;
     layer_mark_dirty(s_player_layer);
   }
+  free(data);
+  app_timer_register(100, data_handler, NULL);
 }
 
 /*static void tap_handler(AccelAxisType axis, int32_t direction) {
@@ -65,6 +70,7 @@ static void data_handler(AccelData *data, uint32_t num_samples) {
 }*/
 
 static void maze_layer_update_callback(Layer *layer, GContext *ctx){
+  //graphics_draw_line(ctx, GPoint(corridorSize*(6 + 1), corridorSize*6), GPoint(corridorSize*(6 + 1), corridorSize*(6 + 1)));
    for(int i = 0; i < mazeWidth; i++){
      for(int j = 0; j < mazeHeight; j++){
        int currentPos = getPOS(j, i, mazeWidth);
@@ -79,7 +85,7 @@ static void maze_layer_update_callback(Layer *layer, GContext *ctx){
 }
 
 static void player_layer_update_callback(Layer *layer, GContext *ctx){
-    graphics_draw_circle(ctx, GPoint(playerX+3, playerY+3), 2);
+    graphics_draw_circle(ctx, GPoint(playerX+4, playerY+4), 3);
 }
 
 static void main_window_load(Window *window) {
@@ -94,11 +100,11 @@ static void main_window_load(Window *window) {
   layer_set_update_proc(s_player_layer, player_layer_update_callback);
   layer_add_child(s_maze_layer, s_player_layer);
   // Create output TextLayer
-  /*s_output_layer = text_layer_create(GRect(5, 0, window_bounds.size.w - 10, window_bounds.size.h));
-  text_layer_set_font(s_output_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
+  s_output_layer = text_layer_create(GRect(5, 0, window_bounds.size.w - 10, window_bounds.size.h));
+  /*text_layer_set_font(s_output_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
   text_layer_set_text(s_output_layer, "No data yet.");
   text_layer_set_overflow_mode(s_output_layer, GTextOverflowModeWordWrap);
-  layer_add_child(window_layer, text_layer_get_layer(s_output_layer));*/
+  layer_add_child(s_player_layer, text_layer_get_layer(s_output_layer));*/
 }
 
 static void main_window_unload(Window *window) {
@@ -112,20 +118,22 @@ static void init() {
   srand(2);
   // Create maze
   mazeWidth = 18;
-  mazeHeight = 18;
-  corridorSize = 6;
+  mazeHeight = 19;
+  corridorSize = 8;
   maze = genmaze(mazeWidth, mazeHeight);
   
+  // Init Accelerometer
+  accel_data_service_subscribe(10, NULL);
+  accel_service_set_sampling_rate(ACCEL_SAMPLING_10HZ);
+  
+  app_log(APP_LOG_LEVEL_INFO,"main.c",125,"WOW SUCH INIT");
   // Init Player Position
   playerX = 0;
   playerY = 0;
   
-  int num_samples = 1;
-  accel_data_service_subscribe(num_samples, data_handler);
-  
-  // Choose update rate
-  accel_service_set_sampling_rate(ACCEL_SAMPLING_100HZ);
-  
+  // Setup App Timer
+  app_timer_register(1000, data_handler, NULL);
+
   // Create main Window
   s_main_window = window_create();
   window_set_window_handlers(s_main_window, (WindowHandlers) {
