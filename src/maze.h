@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MAZE_H
+#define MAZE_H
 #include "global.h"
 typedef struct Cell Cell;
 struct Cell {
@@ -11,3 +12,5 @@ struct Cell {
 Cell* genmaze(int w, int h);
 
 void printmaze(int w, int h, Cell* maze);
+
+#endif

@@ -4,10 +4,11 @@
  * either modes of operation of the accelerometer.
  */
 
-#define POS(y,x,w) ((y)*w+(x))
-
 #include <pebble.h>
 #include "maze.h"
+
+
+#define POS(y,x,w) ((y)*w+(x))
 
 static Window *s_main_window;
 static TextLayer *s_output_layer;
@@ -95,7 +96,7 @@ static void main_window_unload(Window *window) {
 
 static void init() {
   // Create maze
-  maze = genMaze(32, 32);
+  maze = genmaze(32, 32);
   
   // Create main Window
   s_main_window = window_create();
