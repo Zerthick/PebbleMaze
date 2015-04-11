@@ -74,7 +74,7 @@ Cell* genmaze(int w, int h) {
       }
 
       //if the two sets are identical, a wall MUST be placed to avoid loops
-      int r = maze[pos].r = sameset || rand()%2;
+      int r = maze[pos].r = sameset || (y!=h-1 && rand()%2);
       if(r) {
         memset(merges, 0, w*sizeof(*merges));
         mergelen = 0;
