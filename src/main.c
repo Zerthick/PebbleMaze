@@ -26,21 +26,29 @@ static void data_handler(void* out) {
   int error = accel_service_peek(data);
   //app_log(APP_LOG_LEVEL_INFO,"main.c",27,"%hi  %hi %hi %d",data->x,data->y,data->z, error);
   if (data[0].x > 100){
-    playerX++;
-    layer_mark_dirty(s_player_layer);
+    if(playerX<mazeWidth-1 && !maze[getPOS(playerY, playerX, mazeWidth)].r) {
+      playerX++;
+      layer_mark_dirty(s_player_layer);
+    }
   } else if (data[0].x < -100){
-    playerX--;
-    layer_mark_dirty(s_player_layer);
+    if(playerX>0 && !maze[getPOS(playerY, playerX, mazeWidth)-1].r){
+      playerX--;
+      layer_mark_dirty(s_player_layer);
+    }
   }
   if (data[0].y < -100){
-    playerY++;
-    layer_mark_dirty(s_player_layer);
+    if(playerY<mazeHeight-1 && !maze[getPOS(playerY, playerX, mazeWidth)].b){
+      playerY++;
+      layer_mark_dirty(s_player_layer);
+    }
   } else if (data[0].y > 100){
-    playerY--;
-    layer_mark_dirty(s_player_layer);
+    if(playerY>0 && !maze[getPOS(playerY - 1, playerX, mazeWidth)].b){
+      playerY--;
+      layer_mark_dirty(s_player_layer);
+    }
   }
   free(data);
-  app_timer_register(100, data_handler, NULL);
+  app_timer_register(500, data_handler, NULL);
 }
 
 /*static void tap_handler(AccelAxisType axis, int32_t direction) {
@@ -69,7 +77,7 @@ static void data_handler(void* out) {
   }
 }*/
 
-static void maze_layer_update_callback(Layer *layer, GContext *ctx){
+static void maze_layer_update_callback(Layer *layer, GContext *ctx) {
   //graphics_draw_line(ctx, GPoint(corridorSize*(6 + 1), corridorSize*6), GPoint(corridorSize*(6 + 1), corridorSize*(6 + 1)));
    for(int i = 0; i < mazeWidth; i++){
      for(int j = 0; j < mazeHeight; j++){
@@ -82,10 +90,16 @@ static void maze_layer_update_callback(Layer *layer, GContext *ctx){
        }
      }
    }
+  graphics_draw_circle(ctx, GPoint((mazeWidth-1)*corridorSize+4, (mazeHeight-1)*corridorSize+4), 3);
 }
 
-static void player_layer_update_callback(Layer *layer, GContext *ctx){
-    graphics_draw_circle(ctx, GPoint(playerX+4, playerY+4), 3);
+static void player_layer_update_callback(Layer *layer, GContext *ctx) {
+    graphics_draw_circle(ctx, GPoint(playerX*corridorSize+4, playerY*corridorSize+4), 3);
+    graphics_fill_circle(ctx, GPoint(playerX*corridorSize+4, playerY*corridorSize+4), 3);
+    if(playerX % 2 == 0 || playerY % 2 == 0) {
+      graphics_draw_circle(ctx, GPoint((mazeWidth-1)*corridorSize+4, (mazeHeight-1)*corridorSize+4), 3);
+      graphics_fill_circle(ctx, GPoint((mazeWidth-1)*corridorSize+4, (mazeHeight-1)*corridorSize+4), 3);
+    }
 }
 
 static void main_window_load(Window *window) {
@@ -126,13 +140,10 @@ static void init() {
   accel_data_service_subscribe(10, NULL);
   accel_service_set_sampling_rate(ACCEL_SAMPLING_10HZ);
   
-  app_log(APP_LOG_LEVEL_INFO,"main.c",125,"WOW SUCH INIT");
   // Init Player Position
   playerX = 0;
   playerY = 0;
   
-  // Setup App Timer
-  app_timer_register(1000, data_handler, NULL);
 
   // Create main Window
   s_main_window = window_create();
@@ -141,6 +152,9 @@ static void init() {
     .unload = main_window_unload
   });
   window_stack_push(s_main_window, true);
+  
+  
+  data_handler(NULL);
 }
 
 static void deinit() {
