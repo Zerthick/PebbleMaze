@@ -43,34 +43,15 @@ static void data_handler(void* out) {
     layer_mark_dirty(s_player_layer);
   }
   free(data);
+  if (playerY == mazeHeight-1 && playerX == mazeWidth-1){
+    free(maze);
+    maze = genmaze(mazeWidth, mazeHeight);
+    layer_mark_dirty(s_maze_layer);
+    playerX = playerY = 0;
+    layer_mark_dirty(s_player_layer);
+  }
   app_timer_register(500, data_handler, NULL);
 }
-
-/*static void tap_handler(AccelAxisType axis, int32_t direction) {
-  switch (axis) {
-  case ACCEL_AXIS_X:
-    if (direction > 0) {
-      text_layer_set_text(s_output_layer, "X axis positive.");
-    } else {
-      text_layer_set_text(s_output_layer, "X axis negative.");
-    }
-    break;
-  case ACCEL_AXIS_Y:
-    if (direction > 0) {
-      text_layer_set_text(s_output_layer, "Y axis positive.");
-    } else {
-      text_layer_set_text(s_output_layer, "Y axis negative.");
-    }
-    break;
-  case ACCEL_AXIS_Z:
-    if (direction > 0) {
-      text_layer_set_text(s_output_layer, "Z axis positive.");
-    } else {
-      text_layer_set_text(s_output_layer, "Z axis negative.");
-    }
-    break;
-  }
-}*/
 
 static void maze_layer_update_callback(Layer *layer, GContext *ctx) {
   //graphics_draw_line(ctx, GPoint(corridorSize*(6 + 1), corridorSize*6), GPoint(corridorSize*(6 + 1), corridorSize*(6 + 1)));
@@ -91,10 +72,6 @@ static void maze_layer_update_callback(Layer *layer, GContext *ctx) {
 static void player_layer_update_callback(Layer *layer, GContext *ctx) {
     graphics_draw_circle(ctx, GPoint(playerX*corridorSize+4, playerY*corridorSize+4), 3);
     graphics_fill_circle(ctx, GPoint(playerX*corridorSize+4, playerY*corridorSize+4), 3);
-    if(playerX % 2 == 0 || playerY % 2 == 0) {
-      graphics_draw_circle(ctx, GPoint((mazeWidth-1)*corridorSize+4, (mazeHeight-1)*corridorSize+4), 3);
-      graphics_fill_circle(ctx, GPoint((mazeWidth-1)*corridorSize+4, (mazeHeight-1)*corridorSize+4), 3);
-    }
 }
 
 Layer* maketext(TextLayer **tl, const char* text, Layer *parent,
@@ -161,6 +138,7 @@ static void clickprovider(void *context) {
 
 static void init() {
   srand(time(NULL));
+  light_enable(TRUE);
   // Create maze
   mazeWidth = 18;
   mazeHeight = 19;
@@ -190,6 +168,8 @@ static void init() {
 static void deinit() {
   // Destroy main Window
   window_destroy(s_main_window);
+  light_enable(FALSE);
+  free(maze);
 }
 
 int main(void) {
