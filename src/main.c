@@ -7,10 +7,13 @@
 #include <pebble.h>
 #include "maze.h"
 
+static BOOL playing = FALSE;
 
 #define getPOS(y,x,w) ((y)*w+(x))
 static Window *s_main_window;
-static TextLayer *s_output_layer;
+static TextLayer *s_title_layer;
+static bool inverted = false;
+static TextLayer *s_bplay_layer;
 static Layer *s_maze_layer;
 static Layer *s_player_layer;
 
@@ -23,29 +26,21 @@ static int corridorSize;
 
 static void data_handler(void* out) {
   AccelData* data = malloc(sizeof(*data));
-  int error = accel_service_peek(data);
+  accel_service_peek(data);
   //app_log(APP_LOG_LEVEL_INFO,"main.c",27,"%hi  %hi %hi %d",data->x,data->y,data->z, error);
-  if (data[0].x > 100){
-    if(playerX<mazeWidth-1 && !maze[getPOS(playerY, playerX, mazeWidth)].r) {
-      playerX++;
-      layer_mark_dirty(s_player_layer);
-    }
-  } else if (data[0].x < -100){
-    if(playerX>0 && !maze[getPOS(playerY, playerX, mazeWidth)-1].r){
-      playerX--;
-      layer_mark_dirty(s_player_layer);
-    }
+  if (data[0].x > 100 && playerX<mazeWidth-1 && !maze[getPOS(playerY, playerX, mazeWidth)].r) {
+    playerX++;
+    layer_mark_dirty(s_player_layer);
+  } else if (data[0].x < -100 && playerX>0 && !maze[getPOS(playerY, playerX, mazeWidth)-1].r){
+    playerX--;
+    layer_mark_dirty(s_player_layer);
   }
-  if (data[0].y < -100){
-    if(playerY<mazeHeight-1 && !maze[getPOS(playerY, playerX, mazeWidth)].b){
-      playerY++;
-      layer_mark_dirty(s_player_layer);
-    }
-  } else if (data[0].y > 100){
-    if(playerY>0 && !maze[getPOS(playerY - 1, playerX, mazeWidth)].b){
-      playerY--;
-      layer_mark_dirty(s_player_layer);
-    }
+  if (data[0].y < -100 && playerY<mazeHeight-1 && !maze[getPOS(playerY, playerX, mazeWidth)].b){
+    playerY++;
+    layer_mark_dirty(s_player_layer);
+  } else if (data[0].y > 100 && playerY>0 && !maze[getPOS(playerY - 1, playerX, mazeWidth)].b){
+    playerY--;
+    layer_mark_dirty(s_player_layer);
   }
   free(data);
   app_timer_register(500, data_handler, NULL);
@@ -102,6 +97,28 @@ static void player_layer_update_callback(Layer *layer, GContext *ctx) {
     }
 }
 
+Layer* maketext(TextLayer **tl, const char* text, Layer *parent,
+                int x, int y, int w, int h, const char* font, GColor fg, GColor bg) {
+  
+  *tl = text_layer_create(GRect(x, y, w, h));
+  text_layer_set_font(*tl, fonts_get_system_font(font));
+  text_layer_set_text_color(*tl, fg);
+  text_layer_set_background_color(*tl, bg);
+  text_layer_set_text(*tl, text);
+  text_layer_set_overflow_mode(*tl, GTextOverflowModeWordWrap);
+  text_layer_set_text_alignment(*tl, GTextAlignmentCenter);
+  Layer *result = text_layer_get_layer(*tl);
+  layer_add_child(parent, result);
+  return result;
+}
+
+static void blink(void* foo) {
+  inverted = !inverted;
+  text_layer_set_text_color(s_bplay_layer,inverted?GColorWhite:GColorBlack);
+  text_layer_set_background_color(s_bplay_layer,inverted?GColorBlack:GColorWhite);
+  if(!playing) app_timer_register(700, blink, NULL);
+}
+
 static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect window_bounds = layer_get_bounds(window_layer);
@@ -113,19 +130,33 @@ static void main_window_load(Window *window) {
   s_player_layer = layer_create(window_bounds);
   layer_set_update_proc(s_player_layer, player_layer_update_callback);
   layer_add_child(s_maze_layer, s_player_layer);
-  // Create output TextLayer
-  s_output_layer = text_layer_create(GRect(5, 0, window_bounds.size.w - 10, window_bounds.size.h));
-  /*text_layer_set_font(s_output_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
-  text_layer_set_text(s_output_layer, "No data yet.");
-  text_layer_set_overflow_mode(s_output_layer, GTextOverflowModeWordWrap);
-  layer_add_child(s_player_layer, text_layer_get_layer(s_output_layer));*/
+  // Create title layer
+  maketext(&s_title_layer,"MAZE",window_layer,0,0,window_bounds.size.w, window_bounds.size.h,
+          FONT_KEY_BITHAM_42_BOLD,GColorBlack,GColorClear);
+  //create play button
+  maketext(&s_bplay_layer,"play",window_layer,45,60,window_bounds.size.w-90, 40,
+          FONT_KEY_GOTHIC_28_BOLD,GColorBlack,GColorWhite);
+  blink(NULL);
 }
 
 static void main_window_unload(Window *window) {
   // Destroy output TextLayer
-  text_layer_destroy(s_output_layer);
+  text_layer_destroy(s_title_layer);
+  text_layer_destroy(s_bplay_layer);
   layer_destroy(s_maze_layer);
   layer_destroy(s_player_layer);
+}
+
+static void select(ClickRecognizerRef ref, void* context) {
+  playing = TRUE;
+  layer_set_hidden(text_layer_get_layer(s_title_layer),TRUE);
+  layer_set_hidden(text_layer_get_layer(s_bplay_layer),TRUE);
+  data_handler(NULL);
+}
+
+static void clickprovider(void *context) {
+  //set our button event handler
+  window_single_click_subscribe(BUTTON_ID_SELECT, select);
 }
 
 static void init() {
@@ -142,19 +173,18 @@ static void init() {
   
   // Init Player Position
   playerX = 0;
-  playerY = 0;
+  playerY = 0; 
   
 
   // Create main Window
   s_main_window = window_create();
+  window_set_click_config_provider(s_main_window,clickprovider);
   window_set_window_handlers(s_main_window, (WindowHandlers) {
     .load = main_window_load,
     .unload = main_window_unload
   });
   window_stack_push(s_main_window, true);
   
-  
-  data_handler(NULL);
 }
 
 static void deinit() {
