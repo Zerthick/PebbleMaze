@@ -65,7 +65,7 @@ static void data_handler(void* out) {
     dy+=corridorSize;
   }
   free(data);
-  if (playerY == mazeHeight-1 && playerX == mazeWidth-1){
+  if (playerY == mazeHeight-1 && playerX == mazeWidth-1 && dx==0 && dy==0){
     load(mazeWidth,mazeHeight,corridorSize);
   }
 }
