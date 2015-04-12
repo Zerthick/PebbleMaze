@@ -27,6 +27,7 @@ static int mazeHeight;
 static int corridorSize;
 
 static void load(int w, int h, int cs) {
+  dx=dy=0;
   free(maze);
   maze = genmaze(mazeWidth=w, mazeHeight=h);
   corridorSize=cs;
