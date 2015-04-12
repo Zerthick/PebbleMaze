@@ -8,72 +8,88 @@
 #include "maze.h"
 
 static BOOL playing = FALSE;
+static int difficulty = 2;
 
 #define getPOS(y,x,w) ((y)*w+(x))
 static Window *s_main_window;
 static TextLayer *s_title_layer;
 static bool inverted = false;
 static TextLayer *s_bplay_layer;
+static TextLayer *s_diff_layer;
 static Layer *s_maze_layer;
 static Layer *s_player_layer;
 
 static Cell *maze;
-static int playerX;
-static int playerY;
+static int playerX,dx=0;
+static int playerY,dy=0;
 static int mazeWidth;
 static int mazeHeight;
 static int corridorSize;
 
+static void load(int w, int h, int cs) {
+  free(maze);
+  maze = genmaze(mazeWidth=w, mazeHeight=h);
+  corridorSize=cs;
+  layer_mark_dirty(s_maze_layer);
+  playerX = playerY = 0;
+  layer_mark_dirty(s_player_layer);
+}
+
 static void data_handler(void* out) {
+  app_timer_register(30, data_handler, NULL);
+  layer_mark_dirty(s_player_layer);
+  if(dx!=0 || dy!=0) {
+    if(dx<0) dx++;
+    if(dx>0) dx--;
+    if(dy<0) dy++;
+    if(dy>0) dy--;
+    
+    return;
+  }
+  
   AccelData* data = malloc(sizeof(*data));
   accel_service_peek(data);
+  
   //app_log(APP_LOG_LEVEL_INFO,"main.c",27,"%hi  %hi %hi %d",data->x,data->y,data->z, error);
-  if (data[0].x > 100 && playerX<mazeWidth-1 && !maze[getPOS(playerY, playerX, mazeWidth)].r) {
+  if (data->x > 100 && playerX<mazeWidth-1 && !maze[getPOS(playerY, playerX, mazeWidth)].r) {
     playerX++;
-    layer_mark_dirty(s_player_layer);
-  } else if (data[0].x < -100 && playerX>0 && !maze[getPOS(playerY, playerX, mazeWidth)-1].r){
+    dx-=corridorSize;
+  } else if (data->x < -100 && playerX>0 && !maze[getPOS(playerY, playerX, mazeWidth)-1].r){
     playerX--;
-    layer_mark_dirty(s_player_layer);
-  }
-  if (data[0].y < -100 && playerY<mazeHeight-1 && !maze[getPOS(playerY, playerX, mazeWidth)].b){
+    dx+=corridorSize;
+  } else if (data->y < -100 && playerY<mazeHeight-1 && !maze[getPOS(playerY, playerX, mazeWidth)].b){
     playerY++;
-    layer_mark_dirty(s_player_layer);
-  } else if (data[0].y > 100 && playerY>0 && !maze[getPOS(playerY - 1, playerX, mazeWidth)].b){
+    dy-=corridorSize;
+  } else if (data->y > 100 && playerY>0 && !maze[getPOS(playerY - 1, playerX, mazeWidth)].b){
     playerY--;
-    layer_mark_dirty(s_player_layer);
+    dy+=corridorSize;
   }
   free(data);
-  if (playerY == mazeHeight-1 && playerX == mazeWidth-1){
-    free(maze);
-    maze = genmaze(mazeWidth, mazeHeight);
-    layer_mark_dirty(s_maze_layer);
-    playerX = playerY = 0;
-    layer_mark_dirty(s_player_layer);
+  if (playerY == mazeHeight-1 && playerX == mazeWidth-1 && dx==0 && dy==0){
+    load(mazeWidth,mazeHeight,corridorSize);
   }
-  app_timer_register(500, data_handler, NULL);
 }
 
 static void maze_layer_update_callback(Layer *layer, GContext *ctx) {
-  //graphics_draw_line(ctx, GPoint(corridorSize*(6 + 1), corridorSize*6), GPoint(corridorSize*(6 + 1), corridorSize*(6 + 1)));
-   for(int i = 0; i < mazeWidth; i++){
-     for(int j = 0; j < mazeHeight; j++){
-       int currentPos = getPOS(j, i, mazeWidth);
-       if(maze[currentPos].r == 1) {
-         graphics_draw_line(ctx, GPoint(corridorSize*(i + 1), corridorSize*j), GPoint(corridorSize*(i + 1), corridorSize*(j + 1)));
-       }
-       if(maze[currentPos].b == 1) {
-         graphics_draw_line(ctx, GPoint(corridorSize*i, corridorSize*(j + 1)), GPoint(corridorSize*(i + 1), corridorSize*(j + 1)));
-       }
-     }
-   }
-  graphics_draw_circle(ctx, GPoint((mazeWidth-1)*corridorSize+4, (mazeHeight-1)*corridorSize+4), 3);
+  for(int i = 0; i < mazeWidth; i++){
+    for(int j = 0; j < mazeHeight; j++){
+      int currentPos = getPOS(j, i, mazeWidth);
+      if(maze[currentPos].r == 1) {
+        graphics_draw_line(ctx, GPoint(corridorSize*(i + 1), corridorSize*j), GPoint(corridorSize*(i + 1), corridorSize*(j + 1)));
+      }
+      if(maze[currentPos].b == 1) {
+        graphics_draw_line(ctx, GPoint(corridorSize*i, corridorSize*(j + 1)), GPoint(corridorSize*(i + 1), corridorSize*(j + 1)));
+      }
+    }
+  }
+  graphics_draw_circle(ctx, GPoint((mazeWidth-1)*corridorSize+corridorSize/2,
+                                   (mazeHeight-1)*corridorSize+corridorSize/2), corridorSize/2-1);
 }
 
 static void player_layer_update_callback(Layer *layer, GContext *ctx) {
-    graphics_draw_circle(ctx, GPoint(playerX*corridorSize+4, playerY*corridorSize+4), 3);
-    graphics_fill_circle(ctx, GPoint(playerX*corridorSize+4, playerY*corridorSize+4), 3);
+    graphics_fill_circle(ctx, GPoint(playerX*corridorSize+dx+corridorSize/2,
+                                     playerY*corridorSize+dy+corridorSize/2), corridorSize/2-1);
 }
-
 Layer* maketext(TextLayer **tl, const char* text, Layer *parent,
                 int x, int y, int w, int h, const char* font, GColor fg, GColor bg) {
   
@@ -113,6 +129,8 @@ static void main_window_load(Window *window) {
   //create play button
   maketext(&s_bplay_layer,"play",window_layer,45,60,window_bounds.size.w-90, 40,
           FONT_KEY_GOTHIC_28_BOLD,GColorBlack,GColorWhite);
+  maketext(&s_diff_layer,"medium",window_layer,45,window_bounds.size.h-20,window_bounds.size.w-90, 20,
+          FONT_KEY_GOTHIC_14,GColorBlack,GColorWhite);
   blink(NULL);
 }
 
@@ -124,17 +142,40 @@ static void main_window_unload(Window *window) {
   layer_destroy(s_player_layer);
 }
 
+static void updatemaze() {
+  const char *names[] = {"caveman","easy","medium","hard"};
+  text_layer_set_text(s_diff_layer, names[difficulty]);
+  int widths[] = {0,10,18,36};
+  int heights[] = {0,11,19,38};
+  int sizes[] = {0,14,8,4};
+  load(widths[difficulty],heights[difficulty],sizes[difficulty]);
+}
+
 static void select(ClickRecognizerRef ref, void* context) {
   playing = TRUE;
   layer_set_hidden(text_layer_get_layer(s_title_layer),TRUE);
   layer_set_hidden(text_layer_get_layer(s_bplay_layer),TRUE);
+  layer_set_hidden(text_layer_get_layer(s_diff_layer),TRUE);
   data_handler(NULL);
+}
+static void up(ClickRecognizerRef ref, void* context) {
+ difficulty++;
+  if(difficulty>3) difficulty = 3;
+  else updatemaze();
+}
+static void down(ClickRecognizerRef ref, void* context) {
+ difficulty--;
+  if(difficulty<1) difficulty = 1;
+  else updatemaze();
 }
 
 static void clickprovider(void *context) {
   //set our button event handler
   window_single_click_subscribe(BUTTON_ID_SELECT, select);
+  window_single_click_subscribe(BUTTON_ID_UP, up);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down);
 }
+
 
 static void init() {
   srand(time(NULL));
