@@ -4,13 +4,20 @@
         ""
     ],
     "companyName": "grecocd@vcu.edu",
-    "longName": "Accel",
+    "longName": "Maze",
     "projectType": "native",
     "resources": {
-        "media": []
+        "media": [
+            {
+                "file": "images/maze.png",
+                "menuIcon": true,
+                "name": "maze",
+                "type": "png"
+            }
+        ]
     },
     "sdkVersion": "2",
-    "shortName": "Accel",
+    "shortName": "Maze",
     "uuid": "18f48f97-1e43-4223-a79c-9671c8cc8f56",
     "versionCode": 1,
     "versionLabel": "1.0",
