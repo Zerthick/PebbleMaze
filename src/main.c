@@ -27,6 +27,7 @@ static int mazeHeight;
 static int corridorSize;
 
 static void load(int w, int h, int cs) {
+  dx=dy=0;
   free(maze);
   maze = genmaze(mazeWidth=w, mazeHeight=h);
   corridorSize=cs;
@@ -39,10 +40,11 @@ static void data_handler(void* out) {
   app_timer_register(30, data_handler, NULL);
   layer_mark_dirty(s_player_layer);
   if(dx!=0 || dy!=0) {
-    if(dx<0) dx++;
-    if(dx>0) dx--;
-    if(dy<0) dy++;
-    if(dy>0) dy--;
+    int speed=difficulty==1?2:1;
+    if(dx<0) dx+=speed;
+    if(dx>0) dx-=speed;
+    if(dy<0) dy+=speed;
+    if(dy>0) dy-=speed;
     
     return;
   }
