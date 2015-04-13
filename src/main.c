@@ -67,6 +67,9 @@ static void data_handler(void* out) {
     int xopts[4] = {-1,1,0,0};
     int yopts[4] = {0,0,-1,1};
     int bestopt=0, bestscore=0;
+    int xmag = abs(data->x),
+        ymag = abs(data->y);
+    //app_log(APP_LOG_LEVEL_INFO,"main.c",1337,"mag %i %i",xmag,ymag);
     for(int i=0; i<4; i++) {
       int newx = playerX+xopts[i],
           newy = playerY+yopts[i];
@@ -75,11 +78,12 @@ static void data_handler(void* out) {
       //wall checking
       if(i<2) {//x
         curscore *= 1-maze[getPOS(playerY,(xopts[i]==1?playerX:newx),mazeWidth)].r;
-        curscore *= xopts[i]*data->x;
+        curscore *= xmag<50?0:xopts[i]*data->x;
       } else {//y
         curscore *= 1-maze[getPOS((yopts[i]==1?playerY:newy),playerX,mazeWidth)].b;
-        curscore *= -yopts[i]*data->y;
+        curscore *= ymag<50?0:-yopts[i]*data->y;
       }
+      //app_log(APP_LOG_LEVEL_INFO,"main.c",1338,"score %i %i",i,curscore);
       if(curscore > bestscore) {
         bestopt = i;
         bestscore = curscore;
