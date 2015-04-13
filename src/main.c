@@ -181,7 +181,6 @@ static void clickprovider(void *context) {
 
 static void init() {
   srand(time(NULL));
-  light_enable(TRUE);
   // Create maze
   mazeWidth = 18;
   mazeHeight = 19;
@@ -211,7 +210,6 @@ static void init() {
 static void deinit() {
   // Destroy main Window
   window_destroy(s_main_window);
-  light_enable(FALSE);
   free(maze);
 }
 
