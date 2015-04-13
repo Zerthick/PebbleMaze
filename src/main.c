@@ -52,19 +52,25 @@ static void data_handler(void* out) {
   AccelData* data = malloc(sizeof(*data));
   accel_service_peek(data);
   
+  if(abs(data->x) > abs(data->y)) {
+    data->y = 0;
+  } else {
+    data->x = 0;
+  }
+  
   //app_log(APP_LOG_LEVEL_INFO,"main.c",27,"%hi  %hi %hi %d",data->x,data->y,data->z, error);
   if (data->x > 100 && playerX<mazeWidth-1 && !maze[getPOS(playerY, playerX, mazeWidth)].r) {
     playerX++;
-    dx-=corridorSize;
+    dx-=corridorSize-1;
   } else if (data->x < -100 && playerX>0 && !maze[getPOS(playerY, playerX, mazeWidth)-1].r){
     playerX--;
-    dx+=corridorSize;
+    dx+=corridorSize-1;
   } else if (data->y < -100 && playerY<mazeHeight-1 && !maze[getPOS(playerY, playerX, mazeWidth)].b){
     playerY++;
-    dy-=corridorSize;
+    dy-=corridorSize-1;
   } else if (data->y > 100 && playerY>0 && !maze[getPOS(playerY - 1, playerX, mazeWidth)].b){
     playerY--;
-    dy+=corridorSize;
+    dy+=corridorSize-1;
   }
   free(data);
   if (playerY == mazeHeight-1 && playerX == mazeWidth-1 && dx==0 && dy==0){
