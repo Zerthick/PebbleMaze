@@ -39,8 +39,17 @@ static void load(int w, int h, int cs) {
 static void data_handler(void* out) {
   app_timer_register(30, data_handler, NULL);
   layer_mark_dirty(s_player_layer);
+  
+  
+  //you win
+  if (playerY == mazeHeight-1 && playerX == mazeWidth-1 && dx==0 && dy==0){
+    vibes_short_pulse();
+    load(mazeWidth,mazeHeight,corridorSize);
+    return;
+  }
+  
+  int speed = difficulty==1?2:1;
   if(dx!=0 || dy!=0) {
-    int speed=difficulty==1?2:1;
     if(dx<0) dx+=speed;
     if(dx>0) dx-=speed;
     if(dy<0) dy+=speed;
@@ -52,30 +61,38 @@ static void data_handler(void* out) {
   AccelData* data = malloc(sizeof(*data));
   accel_service_peek(data);
   
-  if(abs(data->x) > abs(data->y)) {
-    data->y = 0;
-  } else {
-    data->x = 0;
-  }
-  
-  //app_log(APP_LOG_LEVEL_INFO,"main.c",27,"%hi  %hi %hi %d",data->x,data->y,data->z, error);
-  if (data->x > 100 && playerX<mazeWidth-1 && !maze[getPOS(playerY, playerX, mazeWidth)].r) {
-    playerX++;
-    dx-=corridorSize-1;
-  } else if (data->x < -100 && playerX>0 && !maze[getPOS(playerY, playerX, mazeWidth)-1].r){
-    playerX--;
-    dx+=corridorSize-1;
-  } else if (data->y < -100 && playerY<mazeHeight-1 && !maze[getPOS(playerY, playerX, mazeWidth)].b){
-    playerY++;
-    dy-=corridorSize-1;
-  } else if (data->y > 100 && playerY>0 && !maze[getPOS(playerY - 1, playerX, mazeWidth)].b){
-    playerY--;
-    dy+=corridorSize-1;
+
+  if(data->x*data->x + data->y*data->y > 150*150) {
+    //left, right, up, down, just like maze.c
+    int xopts[4] = {-1,1,0,0};
+    int yopts[4] = {0,0,-1,1};
+    int bestopt=0, bestscore=0;
+    for(int i=0; i<4; i++) {
+      int newx = playerX+xopts[i],
+          newy = playerY+yopts[i];
+      //bounds checking
+      int curscore = (newx>=0 && newy>=0 && newx<mazeWidth && newy < mazeHeight) ? 1 : 0;
+      //wall checking
+      if(i<2) {//x
+        curscore *= 1-maze[getPOS(playerY,(xopts[i]==1?playerX:newx),mazeWidth)].r;
+        curscore *= xopts[i]*data->x;
+      } else {//y
+        curscore *= 1-maze[getPOS((yopts[i]==1?playerY:newy),playerX,mazeWidth)].b;
+        curscore *= -yopts[i]*data->y;
+      }
+      if(curscore > bestscore) {
+        bestopt = i;
+        bestscore = curscore;
+      }
+    }
+    if(bestscore>0) {     
+      playerX += xopts[bestopt];
+      playerY += yopts[bestopt];
+      dx -= xopts[bestopt]*(corridorSize-speed);
+      dy -= yopts[bestopt]*(corridorSize-speed);
+    }
   }
   free(data);
-  if (playerY == mazeHeight-1 && playerX == mazeWidth-1 && dx==0 && dy==0){
-    load(mazeWidth,mazeHeight,corridorSize);
-  }
 }
 
 static void maze_layer_update_callback(Layer *layer, GContext *ctx) {
@@ -160,6 +177,7 @@ static void updatemaze() {
 }
 
 static void select(ClickRecognizerRef ref, void* context) {
+  if(playing) return;
   playing = TRUE;
   layer_set_hidden(text_layer_get_layer(s_title_layer),TRUE);
   layer_set_hidden(text_layer_get_layer(s_bplay_layer),TRUE);
