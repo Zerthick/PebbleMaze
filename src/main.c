@@ -26,6 +26,20 @@ static int mazeWidth;
 static int mazeHeight;
 static int corridorSize;
 
+const int lightdelay = 2000;
+static AppTimer* lighttimer = NULL;
+
+static void godark(void* data) {
+  light_enable(FALSE);
+}
+//lights up the screen briefly
+static void lightup() {
+  light_enable(TRUE);
+  if(!app_timer_reschedule(lighttimer, lightdelay)) {
+    lighttimer = app_timer_register(lightdelay, godark, NULL);
+  }
+}
+
 static void load(int w, int h, int cs) {
   dx=dy=0;
   free(maze);
@@ -89,7 +103,8 @@ static void data_handler(void* out) {
         bestscore = curscore;
       }
     }
-    if(bestscore>0) {     
+    if(bestscore>0) {
+      lightup();
       playerX += xopts[bestopt];
       playerY += yopts[bestopt];
       dx -= xopts[bestopt]*(corridorSize-speed);
@@ -209,6 +224,7 @@ static void clickprovider(void *context) {
 
 static void init() {
   srand(time(NULL));
+  lightup();
   // Create maze
   mazeWidth = 18;
   mazeHeight = 19;
