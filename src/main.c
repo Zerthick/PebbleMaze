@@ -26,7 +26,7 @@ static int mazeWidth;
 static int mazeHeight;
 static int corridorSize;
 
-const int lightdelay = 2000;
+const int lightdelay = 2500;
 static AppTimer* lighttimer = NULL;
 
 static void godark(void* data) {
