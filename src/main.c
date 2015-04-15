@@ -26,6 +26,20 @@ static int mazeWidth;
 static int mazeHeight;
 static int corridorSize;
 
+const int lightdelay = 2500;
+static AppTimer* lighttimer = NULL;
+
+static void godark(void* data) {
+  light_enable(FALSE);
+}
+//lights up the screen briefly
+static void lightup() {
+  light_enable(TRUE);
+  if(!app_timer_reschedule(lighttimer, lightdelay)) {
+    lighttimer = app_timer_register(lightdelay, godark, NULL);
+  }
+}
+
 static void load(int w, int h, int cs) {
   dx=dy=0;
   free(maze);
@@ -39,8 +53,17 @@ static void load(int w, int h, int cs) {
 static void data_handler(void* out) {
   app_timer_register(30, data_handler, NULL);
   layer_mark_dirty(s_player_layer);
+  
+  
+  //you win
+  if (playerY == mazeHeight-1 && playerX == mazeWidth-1 && dx==0 && dy==0){
+    vibes_short_pulse();
+    load(mazeWidth,mazeHeight,corridorSize);
+    return;
+  }
+  
+  int speed = difficulty==1?2:1;
   if(dx!=0 || dy!=0) {
-    int speed=difficulty==1?2:1;
     if(dx<0) dx+=speed;
     if(dx>0) dx-=speed;
     if(dy<0) dy+=speed;
@@ -52,24 +75,43 @@ static void data_handler(void* out) {
   AccelData* data = malloc(sizeof(*data));
   accel_service_peek(data);
   
-  //app_log(APP_LOG_LEVEL_INFO,"main.c",27,"%hi  %hi %hi %d",data->x,data->y,data->z, error);
-  if (data->x > 100 && playerX<mazeWidth-1 && !maze[getPOS(playerY, playerX, mazeWidth)].r) {
-    playerX++;
-    dx-=corridorSize;
-  } else if (data->x < -100 && playerX>0 && !maze[getPOS(playerY, playerX, mazeWidth)-1].r){
-    playerX--;
-    dx+=corridorSize;
-  } else if (data->y < -100 && playerY<mazeHeight-1 && !maze[getPOS(playerY, playerX, mazeWidth)].b){
-    playerY++;
-    dy-=corridorSize;
-  } else if (data->y > 100 && playerY>0 && !maze[getPOS(playerY - 1, playerX, mazeWidth)].b){
-    playerY--;
-    dy+=corridorSize;
+
+  if(data->x*data->x + data->y*data->y > 150*150) {
+    //left, right, up, down, just like maze.c
+    int xopts[4] = {-1,1,0,0};
+    int yopts[4] = {0,0,-1,1};
+    int bestopt=0, bestscore=0;
+    int xmag = abs(data->x),
+        ymag = abs(data->y);
+    //app_log(APP_LOG_LEVEL_INFO,"main.c",1337,"mag %i %i",xmag,ymag);
+    for(int i=0; i<4; i++) {
+      int newx = playerX+xopts[i],
+          newy = playerY+yopts[i];
+      //bounds checking
+      int curscore = (newx>=0 && newy>=0 && newx<mazeWidth && newy < mazeHeight) ? 1 : 0;
+      //wall checking
+      if(i<2) {//x
+        curscore *= 1-maze[getPOS(playerY,(xopts[i]==1?playerX:newx),mazeWidth)].r;
+        curscore *= xmag<50?0:xopts[i]*data->x;
+      } else {//y
+        curscore *= 1-maze[getPOS((yopts[i]==1?playerY:newy),playerX,mazeWidth)].b;
+        curscore *= ymag<50?0:-yopts[i]*data->y;
+      }
+      //app_log(APP_LOG_LEVEL_INFO,"main.c",1338,"score %i %i",i,curscore);
+      if(curscore > bestscore) {
+        bestopt = i;
+        bestscore = curscore;
+      }
+    }
+    if(bestscore>0) {
+      lightup();
+      playerX += xopts[bestopt];
+      playerY += yopts[bestopt];
+      dx -= xopts[bestopt]*(corridorSize-speed);
+      dy -= yopts[bestopt]*(corridorSize-speed);
+    }
   }
   free(data);
-  if (playerY == mazeHeight-1 && playerX == mazeWidth-1 && dx==0 && dy==0){
-    load(mazeWidth,mazeHeight,corridorSize);
-  }
 }
 
 static void maze_layer_update_callback(Layer *layer, GContext *ctx) {
@@ -154,6 +196,7 @@ static void updatemaze() {
 }
 
 static void select(ClickRecognizerRef ref, void* context) {
+  if(playing) return;
   playing = TRUE;
   layer_set_hidden(text_layer_get_layer(s_title_layer),TRUE);
   layer_set_hidden(text_layer_get_layer(s_bplay_layer),TRUE);
@@ -181,7 +224,7 @@ static void clickprovider(void *context) {
 
 static void init() {
   srand(time(NULL));
-  light_enable(TRUE);
+  lightup();
   // Create maze
   mazeWidth = 18;
   mazeHeight = 19;
@@ -211,7 +254,6 @@ static void init() {
 static void deinit() {
   // Destroy main Window
   window_destroy(s_main_window);
-  light_enable(FALSE);
   free(maze);
 }
 
